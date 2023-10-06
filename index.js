@@ -1,12 +1,5 @@
-const express = require('express')
-const app = express()
-const port = 3000
-const rootRouter = require ('./routes/root')
- 
-app.use(express.json())
+const Server = require("./server");
 
-app.use('/api/v1', rootRouter)
+const server = new Server();
 
-app.listen(port,() =>
- {console.log('listenig on port ${port}')
-})
+server.listen();
