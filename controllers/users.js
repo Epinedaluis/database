@@ -125,8 +125,43 @@ const addUser = async (req = request, res= response) => {
     }
 }
 
+const UpdateUser = async (req = request,res = response) =>{
+    //pendiente
+}
 
-module.exports = {listUsers, listUserByID, addUser}
+const deleteUser = async (req, res) => {
+    let conn;
+    const { id } = req.params;
+  
+    try {
+      conn = await pool.getConnection();
+      const [userExist] = await conn.query(usersModel.getByID, [id]);
+  
+      if (!userExist || userExist[0].is_active === 0) {
+        res.status(404).json({ msg: `User with ID ${id} not found` });
+        return; // Agregado para evitar que el código continúe ejecutándose
+      }
+  
+      const [userDeleted] = await conn.query(usersModel.deleteRow, [id]);
+  
+      if (userDeleted.affectedRows === 0) {
+        throw new Error('User not deleted');
+      }
+  
+      res.json({ msg: 'User Deleted Successfully' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json(error.message);
+    } finally {
+      if (conn) {
+        conn.release(); // Usar conn.release() en lugar de conn.end() para liberar la conexión
+      }
+    }
+  };
+  
+
+
+module.exports = {listUsers, listUserByID, addUser,deleteUser}
 
 //Solo para creacion de endpoint --- routes    ---   Controllers  ---  Models (DB)
 // PARAMS LINK CON VALORES
