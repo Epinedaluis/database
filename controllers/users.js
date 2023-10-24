@@ -125,9 +125,69 @@ const addUser = async (req = request, res= response) => {
     }
 }
 
-const UpdateUser = async (req = request,res = response) =>{
-    //pendiente
-}
+const updateUser = async (req, res) => {
+    const { userId } = req.params; // Obtener el ID del usuario de los parámetros de la solicitud
+    const {
+      username,
+      password,
+      email,
+      name,
+      lastname,
+      phonenumber,
+      role_id,
+      is_active,
+    } = req.body;
+  
+    if (!userId) {
+      res.status(400).json({ msg: 'User ID is required' });
+      return;
+    }
+  
+    // Validar si el usuario existe en la base de datos antes de actualizarlo
+    const conn = await pool.getConnection();
+  
+    try {
+      const [existingUser] = await conn.query('SELECT * FROM users WHERE id = ?', [userId]);
+  
+      if (existingUser.length === 0) {
+        res.status(404).json({ msg: 'User not found' });
+        return;
+      }
+  
+      // Construir un objeto con las propiedades que se desean actualizar
+      const updatedUser = {
+        username,
+        password,
+        email,
+        name,
+        lastname,
+        phonenumber,
+        role_id,
+        is_active,
+      };
+  
+      // Eliminar propiedades indefinidas o nulas para evitar que se sobrescriban con valores vacíos
+      for (const key in updatedUser) {
+        if (updatedUser[key] === undefined) {
+          delete updatedUser[key];
+        }
+      }
+  
+      if (Object.keys(updatedUser).length === 0) {
+        res.status(400).json({ msg: 'No valid update fields provided' });
+        return;
+      }
+  
+      // Actualizar el usuario en la base de datos
+      await conn.query('UPDATE users SET ? WHERE id = ?', [updatedUser, userId]);
+      res.json({ msg: 'User updated successfully' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ msg: 'Internal Server Error' });
+    } finally {
+      if (conn) conn.end();
+    }
+  };
 
 const deleteUser = async (req, res) => {
     let conn;
@@ -161,7 +221,7 @@ const deleteUser = async (req, res) => {
   
 
 
-module.exports = {listUsers, listUserByID, addUser,deleteUser}
+module.exports = {listUsers, listUserByID, addUser,deleteUser,updateUser}
 
 //Solo para creacion de endpoint --- routes    ---   Controllers  ---  Models (DB)
 // PARAMS LINK CON VALORES

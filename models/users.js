@@ -56,7 +56,12 @@ const usersModel = {
 
 
 updateRow:`
-Pendiente
+
+UPDATE Users
+SET
+username = ?,
+email = ?
+WHERE id = ?;
 `,
 
 deleteRow: `
