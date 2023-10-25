@@ -1,4 +1,5 @@
- const{request,response} = require('express'); 
+ const{request,response} = require('express');
+ const bcrypt = require('bcrypt') 
  const usersModel = require('../models/users')
 const pool = require('../db');
  const listUsers = async (req = request ,res = response) => {
@@ -82,7 +83,10 @@ const addUser = async (req = request, res= response) => {
         return;
     }
 
-    const user = [username, password, email, name, lastname, phonenumber, role_id, is_active]
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password,saltRounds);
+
+    const user = [username, passwordHash, email, name, lastname, phonenumber, role_id, is_active]
 
     let conn;
 
@@ -125,37 +129,10 @@ const addUser = async (req = request, res= response) => {
     }
 }
 
-const updateUser = async (req, res) => {
-    const { userId } = req.params; // Obtener el ID del usuario de los parámetros de la solicitud
+const updateUser = async (req = request, res = response) => {
+    let conn;
+
     const {
-      username,
-      password,
-      email,
-      name,
-      lastname,
-      phonenumber,
-      role_id,
-      is_active,
-    } = req.body;
-  
-    if (!userId) {
-      res.status(400).json({ msg: 'User ID is required' });
-      return;
-    }
-  
-    // Validar si el usuario existe en la base de datos antes de actualizarlo
-    const conn = await pool.getConnection();
-  
-    try {
-      const [existingUser] = await conn.query('SELECT * FROM users WHERE id = ?', [userId]);
-  
-      if (existingUser.length === 0) {
-        res.status(404).json({ msg: 'User not found' });
-        return;
-      }
-  
-      // Construir un objeto con las propiedades que se desean actualizar
-      const updatedUser = {
         username,
         password,
         email,
@@ -163,31 +140,98 @@ const updateUser = async (req, res) => {
         lastname,
         phonenumber,
         role_id,
-        is_active,
-      };
-  
-      // Eliminar propiedades indefinidas o nulas para evitar que se sobrescriban con valores vacíos
-      for (const key in updatedUser) {
-        if (updatedUser[key] === undefined) {
-          delete updatedUser[key];
-        }
-      }
-  
-      if (Object.keys(updatedUser).length === 0) {
-        res.status(400).json({ msg: 'No valid update fields provided' });
-        return;
-      }
-  
-      // Actualizar el usuario en la base de datos
-      await conn.query('UPDATE users SET ? WHERE id = ?', [updatedUser, userId]);
-      res.json({ msg: 'User updated successfully' });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ msg: 'Internal Server Error' });
-    } finally {
-      if (conn) conn.end();
+        is_active
+    } = req.body;
+
+    const { id } = req.params;
+
+    let passwordHash;
+    if(password) {
+        const saltRounds = 10;
+        passwordHash = await bcrypt.hash(password, saltRounds);
     }
-  };
+
+    let userNewData = [
+        username,
+        passwordHash,
+        email,
+        name,
+        lastname,
+        phonenumber,
+        role_id,
+        is_active
+    ];
+
+    try {
+        conn = await pool.getConnection();
+
+const [userExists] = await conn.query
+(usersModel.getByID, 
+    [id], 
+    (err) => {
+    if (err) throw err;
+});
+
+if (!userExists || userExists.is_active ===0){
+    res.status(409).json({msg: `User with ID ${id} not found`});
+         return;
+}
+
+const [usernameExists] = await conn.query(usersModel.getByUsername, [username], (err) => {
+    if (err) throw err;
+    })
+    if (usernameExists) {
+        res.status(409).json({msg: 'Username ${username} already exists'});
+        return;
+       }
+
+const [emailExists] = await conn.query(usersModel.getByEmail, [email], (err) => {
+      if (err) throw err;
+     })
+      if (emailExists) {
+          res.status(409).json({msg: 'Email ${email} already exists'});
+         return;
+           }
+
+        const userOldData = [
+        userExists.username,
+        userExists.password,
+        userExists.email,
+        userExists.name,
+        userExists.lastname,
+        userExists.phonenumber,
+        userExists.role_id,
+        userExists.is_active
+        
+      ];
+
+      userNewData.forEach((userData, index) =>{
+        if (!userData){
+            userNewData[index] = userOldData[index];
+        }
+      })
+           const userUpdated = await conn.query(
+            usersModel.updateRow,
+            [...userNewData, id],
+            (err) =>{
+                if (err) throw err;
+            }
+           )
+
+ if (userUpdated.affecteRows === 0){
+   throw new Error('User not added')
+        } 
+
+        res.json({msg: 'USER ADDED SECCESFULLY'});
+        
+    } catch (error) {
+        console.log(error);
+        res.status(500).json(error);
+        return;
+    } finally {
+        if (conn) conn.end();
+    }
+}
 
 const deleteUser = async (req, res) => {
     let conn;
@@ -195,7 +239,8 @@ const deleteUser = async (req, res) => {
   
     try {
       conn = await pool.getConnection();
-      const [userExist] = await conn.query(usersModel.getByID, [id]);
+      const [userExist] = await conn.query
+      (usersModel.getByID, [id]);
   
       if (!userExist || userExist[0].is_active === 0) {
         res.status(404).json({ msg: `User with ID ${id} not found` });

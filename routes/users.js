@@ -4,15 +4,15 @@ const {listUsers,
     listUserByID,
     addUser,
     deleteUser,
-    updateUser}  = require('../controllers/users')
+    updateUser} 
+     = require('../controllers/users')
 
 
 router.get('/',listUsers);
 router.get('/:id',listUserByID) // http://localhost:3000/api/v1/user/?
 // router.post('/',listUsers)
 router.put('/',addUser)
-router.put('/',updateUser)
-// router.patch('/',listUsers)
+router.patch('/:id',updateUser)
 router.delete('/:id',deleteUser)
 
 module.exports = router

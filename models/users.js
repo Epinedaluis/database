@@ -57,11 +57,19 @@ const usersModel = {
 
 updateRow:`
 
-UPDATE Users
+UPDATE 
+Users
 SET
 username = ?,
-email = ?
-WHERE id = ?;
+        password = ?,
+        email = ?,
+        name= ?,
+        lastname= ?,
+        phonenumber= ?,
+        role_id= ?,
+        is_active= ?
+WHERE 
+id = ?
 `,
 
 deleteRow: `
