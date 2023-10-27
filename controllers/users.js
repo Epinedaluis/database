@@ -2,6 +2,7 @@
  const bcrypt = require('bcrypt') 
  const usersModel = require('../models/users')
 const pool = require('../db');
+const { createConnection } = require('mariadb');
  const listUsers = async (req = request ,res = response) => {
     const {id} = req.params;
     let conn;
@@ -144,6 +145,7 @@ const updateUser = async (req = request, res = response) => {
     } = req.body;
 
     const { id } = req.params;
+    
 
     let passwordHash;
     if(password) {
@@ -259,14 +261,71 @@ const deleteUser = async (req, res) => {
       res.status(500).json(error.message);
     } finally {
       if (conn) {
-        conn.release(); // Usar conn.release() en lugar de conn.end() para liberar la conexión
+        conn.end(); // Usar conn.release() en lugar de conn.end() para liberar la conexión
       }
     }
-  };
+  }
   
 
+  const signInUser = async (req = request, res = response) =>{
+    let conn;
 
-module.exports = {listUsers, listUserByID, addUser,deleteUser,updateUser}
+    const {username,password} = req.body; 
+
+       
+    try{
+
+        conn = await pool.getConnection();
+
+        if (!username || !password){
+            res.status(400).json({msg: 'You must send Username And Password'});
+            return;
+        }
+    
+       
+    
+        const [user] = await conn.query (usersModel.getByUsername,
+            [username],
+            (err) => {
+                if (err) throw err;
+            }
+            
+            );
+    
+            if (!user){
+                res.status(400).json({msg: `Wrong username or password`});
+                return;
+            }
+
+            const passwordOk = await bcrypt.compare(password,user.password);
+
+            if (!passwordOk){
+                res.status(400).json({msg: 'You must send Username And Password'});
+                return;
+            }
+
+
+            delete(user.password);
+            delete(user.created_at);
+            delete(user.updated_at);
+
+            res.json(user);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json(error);
+    } finally{
+        if(conn) conn.end();
+    }
+  }
+
+
+module.exports = {
+     listUsers, 
+     listUserByID,
+     addUser,
+     deleteUser,
+     updateUser,
+     signInUser}
 
 //Solo para creacion de endpoint --- routes    ---   Controllers  ---  Models (DB)
 // PARAMS LINK CON VALORES
